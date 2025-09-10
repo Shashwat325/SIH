@@ -1,10 +1,8 @@
-"use client";
-
 import React from "react";
 import { useState, useEffect, useRef } from "react";
-import { MapContainer, TileLayer, useMapEvents, GeoJSON } from "react-leaflet";
+import { MapContainer, TileLayer, useMapEvents, GeoJSON, Marker, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
-import * as turf from "@turf/turf";
+
 import "leaflet/dist/leaflet.css";
 import Tuna from '/src/assets/Yellowfin Tuna.jpg'
 import clownfish from '/src/assets/Clarks clownfish.jpg'
@@ -16,95 +14,132 @@ import crab from '/src/assets/Swimming crab.jpg';
 import ostracod from '/src/assets/Ostracod (seed shrimp).jpg';
 import mossy from '/src/assets/Mossy red seaweed.jpg';
 import lettuce from '/src/assets/Sea lettuce.jpg';
-
+import * as turf from '@turf/turf';
 import dinoflagellate from '/src/assets/Dinoflagellate (phytoplankton).jpg';
 import sparkle from '/src/assets/Sea sparkle (bioluminescent dinoflagellate).jpg';
 function BoundsUpdater() {
-    const map = useMapEvents({
-        zoomend: () => {
-            if (!map._initialLockDone) {
-                map._initialLockDone = true;
-            }
-            map.setMaxBounds(map.getBounds());
-        },
-        moveend: () => {
-            if (map._initialLockDone) {
-                map.setMaxBounds(map.getBounds());
-            }
-        },
-    });
+    const map = useMap();
 
     useEffect(() => {
-        const worldBounds = L.latLngBounds(
-            [-90, -180],
-            [90, 180]
-        );
+        const worldBounds = L.latLngBounds([-90, -180], [90, 180]);
         map.setMaxBounds(worldBounds);
     }, [map]);
 
     return null;
 }
 
-function QueryResultsLayer({ geoJsonData, colors }) {
-    if (!geoJsonData || Object.keys(geoJsonData).length === 0) {
-        return null;
-    }
 
-    return (
-        <>
-            {Object.entries(geoJsonData).map(([filename, geojson], index) => {
-                const color = colors[index % colors.length];
+function QueryResultsLayer({ geoJsonData, pinnedGeoJsonData, colors }) {
+  if (
+    (!geoJsonData || Object.keys(geoJsonData).length === 0) &&
+    (!pinnedGeoJsonData || Object.keys(pinnedGeoJsonData).length === 0)
+  ) {
+    return null;
+  }
 
-                return (
-                    <GeoJSON
-                        key={`${filename}-${index}`}
-                        data={geojson}
-                        style={() => ({
-                            color: color,
-                            weight: 2,
-                            opacity: 0.8,
-                            fillOpacity: 0.6,
-                            lineJoin: "round",
-                        })}
-                        pointToLayer={(feature, latlng) => {
-                            return L.circleMarker(latlng, {
-                                radius: 6,
-                                fillColor: color,
-                                color: '#fff',
-                                weight: 1,
-                                opacity: 1,
-                                fillOpacity: 0.8,
-                                lineJoin: "round",
-                            });
-                        }}
-                        onEachFeature={(feature, layer) => {
-                            let popupContent = `<strong>Dataset:</strong> ${filename}<br>`;
-                            if (feature.properties) {
-                                Object.keys(feature.properties).forEach(key => {
-                                    popupContent += `<strong>${key}:</strong> ${feature.properties[key]}<br>`;
-                                });
-                            }
-                            layer.bindPopup(popupContent);
-                        }}
-                    />
-                );
+  // Combine both GeoJSON datasets
+  const allGeoJsonData = { ...geoJsonData, ...pinnedGeoJsonData };
+
+  return (
+    <>
+      {Object.entries(allGeoJsonData).map(([filename, geojson], index) => {
+        const color = colors[index % colors.length];
+
+        return (
+          <GeoJSON
+            key={`${filename}-${index}`}
+            data={geojson}
+            style={() => ({
+              radius: 12,
+              color: color,
+              weight: 4,
+              opacity: 0.8,
+              fillOpacity: 0.6,
+              lineJoin: "round",
             })}
-        </>
-    );
+            pointToLayer={(feature, latlng) => {
+              return L.circleMarker(latlng, {
+                radius: 12,
+                fillColor: color,
+                color: color,
+                weight: 4,
+                opacity: 1,
+                fillOpacity: 0.8,
+                lineJoin: "round",
+              });
+            }}
+            onEachFeature={(feature, layer) => {
+              let popupContent = `<strong>Dataset:</strong> ${filename}<br>`;
+              if (feature.properties) {
+                Object.keys(feature.properties).forEach(key => {
+                  popupContent += `<strong>${key}:</strong> ${feature.properties[key]}<br>`;
+                });
+              }
+              layer.bindPopup(popupContent);
+            }}
+          />
+        );
+      })}
+    </>
+  );
 }
+function DropHandler({ onDropMarker }) {
+    const map = useMap();
+
+    useEffect(() => {
+        const container = map.getContainer();
+
+        const handleDrop = (e) => {
+            e.preventDefault();
+            const bounds = container.getBoundingClientRect();
+            const x = e.clientX - bounds.left;
+            const y = e.clientY - bounds.top;
+
+            const latlng = map.containerPointToLatLng([x, y]);
+            onDropMarker(latlng); // just call once
+        };
+
+        const handleDragOver = (e) => e.preventDefault();
+
+        container.addEventListener("dragover", handleDragOver);
+        container.addEventListener("drop", handleDrop);
+
+        // ✅ remove listeners when component unmounts or rerenders
+        return () => {
+            container.removeEventListener("dragover", handleDragOver);
+            container.removeEventListener("drop", handleDrop);
+        };
+    }, [map, onDropMarker]);
+
+    return null;
+}
+
+
 export default function MapComponet() {
     const [openlist, setopenlist] = useState(null);
     const [query, setQuery] = useState("");
     const [loading, setLoading] = useState(false);
     const [geoJsonData, setGeoJsonData] = useState({});
+    const [droppedMarkers, setDroppedMarkers] = useState([]);
     const [pop, setpop] = useState([]);
+    const [fishPos, setFishPos] = useState(null);
+    const [pinned, setpinned] = useState([]);
+    const [pinnedGeoJsonData, setPinnedGeoJsonData] = useState({});
+
+    const fishIcon = new L.DivIcon({
+        html: "🦈",          // the emoji itself
+        className: "fish-icon", // optional custom class
+        iconSize: [30, 30],  // size box for the emoji
+        iconAnchor: [15, 15] // center the emoji on the drop point
+    });
+
     const [status, setStatus] = useState("");
     const images = {
         "Yellowfin Tuna": Tuna,
         "Clark's Clownfish": clownfish,
         "Sea firefly (bioluminescent ostracod)": firefly,
         "Indian Oil Sardine": sardine,
-        "Indian Anchovy": anchovy,
+        "Indian Anchovey": anchovy,
         "Indian Mackerel": mackerel,
         "Ostracod (seed shrimp)": ostracod,
         "Swimming crab": crab,
@@ -143,9 +178,26 @@ export default function MapComponet() {
             setTimeout(() => setStatus(''), 5000);
         }
     };
+    const dropquery = (pos) => {
+        setFishPos(pos)
+        const center = [pos.lng, pos.lat];
+        const radius = 300; // in kilometers
+        const options = { steps: 64, units: 'kilometers' };
+        const circle = turf.circle(center, radius, options);
 
-    const sendQuery = async (q) => {
+        // 3. Get the bounding box of the circle
+        const boundingBox = turf.bbox(circle);
+        const dropcoordinates = {
+            west: boundingBox[0],
+            south: boundingBox[1],
+            east: boundingBox[2],
+            north: boundingBox[3]
+        };
+        sendQuery("find all fishes in this area", dropcoordinates);
+    }
+    const sendQuery = async (q, dropcoords = null) => {
         setpop([]);
+        setGeoJsonData({});
         const finalquery = (q || query).trim();
         if (!finalquery) {
             showStatus('Please enter a query', 'error');
@@ -155,8 +207,25 @@ export default function MapComponet() {
         setLoading(true);
         showStatus('Processing your query...', 'loading');
 
+        let bounds = null;
+        if (dropcoords) {
+            bounds = dropcoords;
+        }
+        else if (mapRef.current) {
+            setFishPos(null);
+            const map = mapRef.current;
+            const b = map.getBounds();
+            bounds = {
+                north: b.getNorth(),
+                south: b.getSouth(),
+                east: b.getEast(),
+                west: b.getWest(),
+            };
+        }
+
         const payload = {
-            prompt: finalquery.trim()
+            prompt: finalquery.trim(),
+            coordinates: bounds, // ✅ send current map bounds
         };
 
         try {
@@ -194,8 +263,31 @@ export default function MapComponet() {
                     showStatus(null, null); // or showStatus("", "")
                 }, 3000);
             }, 2000);
-            setpop((prev) => [...prev, q]);
-            setQuery("")
+            if (Object.keys(images).includes(q)) { setpop([]); setpop((prev) => [q]); }
+
+
+
+            else {
+                const names = [];
+                Object.values(result.data).forEach(geojson => {
+                    geojson.features.forEach(f => {
+                        if (f.properties?.species || f.properties?.ScientificNames) {
+                            names.push(f.properties.species);
+                        }
+                    });
+                });
+                setpop(prev => {
+                    const newResults = [...new Set(names)];
+                    // filter out any already pinned items
+                    const filtered = newResults.filter(n => !pinned.includes(n));
+                    return filtered;
+                });
+            }
+
+
+
+            // clear query box
+            setQuery("");
             // Fit map to data after a short delay to ensure layers are rendered
             setTimeout(() => {
                 if (mapRef.current && Object.keys(result.data).length > 0) {
@@ -224,12 +316,6 @@ export default function MapComponet() {
         }
     };
 
-    const clearMap = () => {
-        setGeoJsonData({});
-        setQuery('');
-        showStatus('Map cleared', 'success');
-    };
-
     const dropdown = (a) => {
         setopenlist(openlist === a ? null : a);
     };
@@ -238,106 +324,206 @@ export default function MapComponet() {
         setQuery(item);
         setopenlist(null);
     };
+    const sharkIcon = L.divIcon({
+        html: "🦈",
+        className: "",
+        iconSize: [32, 32],
+        iconAnchor: [16, 16],
+    });
 
     return (
         <div className="relative flex w-full h-screen">
             {/* Leaflet Map */}
             <MapContainer
-                center={[20, 0]}
-                zoom={2}
+                center={[25, 25]}
+                zoom={2.5}
                 style={{ height: '100vh', width: '100%' }}
                 className="w-full h-full"
                 worldCopyJump={false}
+                maxBounds={[
+                    [-90, -180],
+                    [90, 180]
+                ]}
+                maxBoundsViscosity={1.0} // keeps the map locked in bounds
                 ref={mapRef}
             >
                 <TileLayer
-                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                    url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+                // ✅ prevents map repetition
                 />
+
                 <BoundsUpdater />
-                <QueryResultsLayer geoJsonData={geoJsonData} colors={colors} />
+                <DropHandler onDropMarker={dropquery} />
+
+                {fishPos && (
+                    <Marker position={fishPos} icon={fishIcon}>
+                        <Popup>🦈Dropped here!</Popup>
+                    </Marker>
+                )}
+
+                <QueryResultsLayer geoJsonData={geoJsonData} pinnedGeoJsonData={pinnedGeoJsonData} colors={colors} />
             </MapContainer>
 
+
             {/* Floating Category Buttons */}
-            <div ref={containerRef} className="absolute flex justify-center top-4 left-1/2 transform -translate-x-1/2 z-[1000] w-4/5 gap-3">
-                <button className="flex w-1/6 justify-center hover:border-white border-2 border-blue-400 bg-white hover:bg-blue-500 hover:text-white px-3 py-2 rounded-full shadow" onClick={() => dropdown("animals")}>
-                    Aquatic animals
-                </button>
-                {openlist === "animals" && (
-                    <div className="absolute top-full  w-1/6 bg-white border rounded shadow-md" style={{ left: '6%' }}>
-                        <ul className="text-sm">
-                            {["Yellowfin Tuna", "Clark's Clownfish", "Indian Oil Sardine", "Indian Anchovey", "Indian Mackerel", "Ostracod (seed shrimp)", "Sea firefly (bioluminescent ostracod)", "Swimming crab"].map((item) => (
-                                <li key={item} className="px-3 py-2 hover:bg-blue-200 cursor-pointer" onClick={() => { selectItem(item); sendQuery(item) }}>
-                                    {item}
-                                </li>
-                            ))}
-                        </ul>
-                    </div>
-                )}
+            <div ref={containerRef} className="absolute flex justify-center top-4 left-1/2 transform -translate-x-1/2 z-[3000] w-4/5 gap-3 " >
+                <div className=" flex  w-1/6 h-full " >
+                    <button className="flex w-full justify-center hover:border-white border-2 border-blue-400 bg-white hover:bg-blue-500 hover:text-white px-3 py-1 " style={{ borderRadius: '20px', height: '100%', fontSize: '1.4vw', alignItems: 'center' }} onClick={() => dropdown("animals")}>
+                        Aquatic animals
+                    </button>
+                    {openlist === "animals" && (
+                        <div className="absolute  top-full w-1/6 bg-white border rounded shadow-md z-[3000]" >
+                            <ul className="text-sm" style={{ alignItems: 'center', justifyContent: 'center' }} >
+                                {["Yellowfin Tuna", "Clark's Clownfish", "Indian Oil Sardine", "Indian Anchovey", "Indian Mackerel", "Ostracod (seed shrimp)", "Sea firefly (bioluminescent ostracod)", "Swimming crab"].map((item) => (
+                                    <li key={item} className="px-3 py-2 hover:bg-blue-200 justify-center cursor-pointer" style={{ fontSize: '1.5vw' }} onClick={() => { selectItem(item); sendQuery(item) }}>
+                                        {item}
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    )}
+                </div>
 
-                <button className="flex w-1/6 justify-center  hover:border-white border-2 border-green-500 bg-white hover:bg-green-500 hover:text-white px-3 py-2 rounded-full" onClick={() => { dropdown("plants") }}>
-                    Aquatic Plants
-                </button>
-                {openlist === "plants" && (
-                    <div className="absolute top-full  w-1/6 bg-white border rounded shadow-md" style={{ left: '24%' }}>
-                        <ul className="text-sm">
-                            {["Mossy red seaweed", "Sea lettuce", "Dinoflagellate (phytoplankton)", "Sea sparkle (bioluminescent dinoflagellate)"].map((item) => (
-                                <li key={item} className="px-3 py-2 hover:bg-green-200 cursor-pointer" onClick={() => { selectItem(item); sendQuery(item) }} >
-                                    {item}
-                                </li>
-                            ))}
-                        </ul>
-                    </div>
-                )}
+                <div className="  flex w-1/6 justify-center  h-full" >
+                    <button className="flex w-full justify-center  hover:border-white border-2 border-green-500 bg-white hover:bg-green-500 hover:text-white px-3 py-1 " style={{ borderRadius: '20px', height: '100%', fontSize: '1.5vw' }} onClick={() => { dropdown("plants") }}>
+                        Aquatic Plants
+                    </button>
+                    {openlist === "plants" && (
+                        <div className="absolute top-full  w-1/6 bg-white border rounded shadow-md" >
+                            <ul className="text-sm" style={{ alignItems: 'center', justifyContent: 'center' }}>
+                                {["Mossy red seaweed", "Sea lettuce", "Dinoflagellate (phytoplankton)", "Sea sparkle (bioluminescent dinoflagellate)"].map((item) => (
+                                    <li key={item} className="px-3 py-2 justify-center hover:bg-green-200 cursor-pointer" style={{ fontSize: '1.5vw' }} onClick={() => { selectItem(item); sendQuery(item) }} >
+                                        {item}
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    )}
+                </div>
 
-                <button className="flex w-1/6 justify-center  hover:border-white border-2 border-orange-700 bg-white hover:bg-orange-950 hover:text-white px-3 py-2 rounded-full" onClick={() => { selectItem("Petroleum"); sendQuery("Petroleum") }}>
+                <button className="flex w-1/6 justify-center  hover:border-white border-2 border-orange-700 bg-white hover:bg-orange-950 hover:text-white px-3 py-1 " style={{ borderRadius: '20px', height: '100%', fontSize: '1.5vw', justifyContent: 'center', alignItems: 'center' }} onClick={() => { selectItem("Petroleum"); sendQuery("Petroleum") }}>
                     Petroleum
                 </button>
-                <button className="w-1/6 flex justify-center  hover:border-white border-2 border-red-700 bg-white hover:bg-red-800 hover:text-white px-3 py-2 rounded-full" onClick={() => { selectItem("Shipwrecks"); sendQuery("Shipwrecks") }}>
+                <button className="w-1/6 flex justify-center h-1/2  hover:border-white border-2 border-red-700 bg-white hover:bg-red-800 hover:text-white px-3 py-1" style={{ borderRadius: '20px', height: '100%', fontSize: '1.5vw', alignItems: 'center' }} onClick={() => { selectItem("Shipwrecks"); sendQuery("Shipwrecks") }}>
                     Shipwrecks
                 </button>
-                <button className="w-1/6 flex justify-center  hover:border-white border-2 border-green-900 bg-white hover:bg-green-950 hover:text-white px-3 py-2 rounded-full" onClick={() => { selectItem("Pollution"); sendQuery("Pollution") }}>
+                <button className="w-1/6 flex justify-center h-1/2 hover:border-white border-2 border-green-900 bg-white hover:bg-green-950 hover:text-white px-3 py-1 " style={{ borderRadius: '20px', height: '100%', fontSize: '1.5vw', alignItems: 'center' }} onClick={() => { selectItem("Pollution"); sendQuery("Pollution") }}>
                     Pollution
                 </button>
             </div>
 
             {/* Clear Button */}
-            <div className="absolute flex justify-center top-4 z-[1000] w-auto" style={{ right: '4%' }}>
-                <button
-
-                    className="bg-white hover:bg-gray-200 px-4 py-2 rounded shadow border"
+            <span
+                role="img"
+                aria-label="fish"
+                draggable
+                className="absolute top-4 right-4 text-4xl cursor-grab z-[2000]"
+                onDragStart={(e) => {
+                    e.dataTransfer.setData("text/plain", "fish");
+                }}
+            >
+                🦈
+            </span>
+            {pop.length > 0 || pinned.length > 0 ? (
+                <div
+                    className="absolute flex-col w-1/5 left-4 h-[calc(100%-2rem)] overflow-y-scroll top-10 bottom-4 z-[1000]"
+                    style={{ msOverflowStyle: "none", scrollbarWidth: "none" }}
                 >
-                    Banda
-                </button>
-            </div>
-            {pop.length > 0 && <div className="absolute flex-col w-1/5 left-4 h-100 overflow-y-scroll top-4 bottom-4 justify-center z-[1000]" style={{ msOverflowStyle: 'none', scrollbarWidth: 'none' }}>
-                {pop.map((name, i) => {
-                    return (
+                    {/* Pinned Items */}
+                    {pinned.map((name, i) => (
                         <div
-                            key={i}
-                            className="flex-col items-center gap-4 mt-10 rounded-lg bg-white px-1 py-1 " style={{ height: '30%' }}
+                            key={`pinned-${i}`}
+                            className="flex-col items-center gap-4 mt-4 rounded-lg bg-yellow-100 px-2 py-2"
+                            style={{ height: "auto", maxHeight: '50%', zIndex: '3' }}
                         >
-                            <img src={images[name]} alt={name} className="w-full object-cover" style={{ height: '60%', borderRadius: '10px' }} />
-                            <div className="flex flex-col">
+                            <img
+                                src={images[name]}
+                                alt={name}
+                                className="w-full object-cover"
+                                style={{ height: "65%", borderRadius: "10px" }}
+                            />
+                            <div className="flex flex-col items-center">
+                                <span className="font-medium">📌 {name}</span>
+                                <a href="#" className="text-blue-500 hover:underline text-sm">
+                                    Read more..
+                                </a>
+                                <button
+                                    className="mt-1 px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600"
+                                    style={{ fontSize: "0.9rem" }}
+                                    onClick={() => {
+                                        setpinned((prev) => prev.filter((item) => item !== name));
+                                        setPinnedGeoJsonData((prev) => {
+        const newPinnedGeoJson = { ...prev };
+        Object.keys(newPinnedGeoJson).forEach((filename) => {
+          newPinnedGeoJson[filename].features = newPinnedGeoJson[filename].features.filter(
+            f => (f.properties?.species || f.properties?.ScientificNames) !== name
+          );
+          if (newPinnedGeoJson[filename].features.length === 0) {
+            delete newPinnedGeoJson[filename];
+          }
+        });
+        return newPinnedGeoJson;
+      });
+                                        setpop((prev) => [...prev, name]);
+                                    }}
+                                >
+                                    Unpin
+                                </button>
+                            </div>
+                        </div>
+                    ))}
+                    {/* Search Result Items */}
+                    {pop.map((name, i) => (
+                        <div
+                            key={`pop-${i}`}
+                            className="flex-col items-center gap-4 mt-4 rounded-lg bg-white px-2 py-2"
+                            style={{ height: "auto", maxHeight: '50%', zIndex: '2' }}
+                        >
+                            <img
+                                src={images[name]}
+                                alt={name}
+                                className="w-full object-cover"
+                                style={{ height: "65%", borderRadius: "10px" }}
+                            />
+                            <div className="flex flex-col items-center">
                                 <span className="font-medium">{name}</span>
                                 <a href="#" className="text-blue-500 hover:underline text-sm">
                                     Read more..
                                 </a>
+                                <button
+                                    className="mt-1 px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
+                                    style={{ fontSize: "0.9rem" }}
+                                    onClick={() => {
+                                        if (!pinned.includes(name)) {
+                                            setpinned((prev) => [name, ...prev]); // Add to top of pinned list
+                                            const geoJsonForName = Object.entries(geoJsonData).reduce((acc, [filename, geojson]) => {
+        const features = geojson.features.filter(f => 
+          (f.properties?.species || f.properties?.ScientificNames) === name
+        );
+        if (features.length > 0) {
+          acc[filename] = { ...geojson, features };
+        }
+        return acc;
+      }, {});
+      setPinnedGeoJsonData((prev) => ({ ...prev, ...geoJsonForName }));
+                                            setpop((prev) => prev.filter((item) => item !== name)); // Remove from pop
+                                        }
+                                    }}
+                                    /* onDoubleClick={() => {
+                                        if (pinned.includes(name)) {
+                                            setpinned((prev) => prev.filter((item) => item !== name)); // Remove from pinned
+                                             // Add back to pop
+                                        }
+                                    }} */
+                                >
+                                    {pinned.includes(name) ? "Unpin" : "Pin"}
+                                </button>
                             </div>
-                        </div>)
-                })}
-                {/* <div className=" flex mt-10 border-3 bg-white h-1/5 " style={{justifyContent:'center',alignItems:'center'}}>anday</div>
-                <div className=" flex mt-10 border-3 bg-white h-1/5 " style={{justifyContent:'center',alignItems:'center'}}>anday</div>
-                <div className=" flex mt-10 border-3 bg-white h-1/5 " style={{justifyContent:'center',alignItems:'center'}}>anday</div>
-                <div className=" flex mt-10 border-3 bg-white h-1/5 " style={{justifyContent:'center',alignItems:'center'}}>anday</div>
-                <div className=" flex mt-10 border-3 bg-white h-1/5 " style={{justifyContent:'center',alignItems:'center'}}>anday</div>
-                <div className=" flex mt-10 border-3 bg-white h-1/5 " style={{justifyContent:'center',alignItems:'center'}}>anday</div>
-                <div className=" flex mt-10 border-3 bg-white h-1/5 " style={{justifyContent:'center',alignItems:'center'}}>anday</div>
-                <div className=" flex mt-10 border-3 bg-white h-1/5 " style={{justifyContent:'center',alignItems:'center'}}>anday</div>
-                <div className=" flex mt-10 border-3 bg-white h-1/5 " style={{justifyContent:'center',alignItems:'center'}}>anday</div>
-                <div className=" flex mt-10 border-3 bg-white h-1/5 " style={{justifyContent:'center',alignItems:'center'}}>anday</div>
- */}
-            </div>}
+                        </div>
+                    ))}
+                </div>
+            ) : null}
             {/* Search Input */}
             <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-[1000] w-1/2 flex gap-2 rounded-full">
                 <input
@@ -376,6 +562,16 @@ export default function MapComponet() {
                     </div>
                 </div>
             )}
+            {droppedMarkers.length > 0 && (
+                <div className="absolute bottom-4 left-4 bg-white px-4 py-2 rounded-lg shadow-md z-[2000] text-sm font-mono max-h-40 overflow-y-auto">
+                    {droppedMarkers.map((pos, i) => (
+                        <div key={i}>
+                            📍 {i + 1}: Lat {pos[0].toFixed(6)}, Lng {pos[1].toFixed(6)}
+                        </div>
+                    ))}
+                </div>
+            )}
+
         </div>
     );
 }
