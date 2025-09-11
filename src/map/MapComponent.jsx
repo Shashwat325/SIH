@@ -1,7 +1,10 @@
 import React from "react";
 import { useState, useEffect, useRef } from "react";
 import { MapContainer, TileLayer, useMapEvents, GeoJSON, Marker, Popup, useMap } from "react-leaflet";
+import SpeechRecognition, { useSpeechRecognition } from 'react-speech-recognition';
 import L from "leaflet";
+import { FaMicrophone } from "react-icons/fa";
+
 import "leaflet/dist/leaflet.css";
 import Tuna from '/src/assets/Yellowfin Tuna.jpg';
 import clownfish from '/src/assets/Clarks clownfish.jpg';
@@ -15,6 +18,7 @@ import mossy from '/src/assets/Mossy red seaweed.jpg';
 import lettuce from '/src/assets/Sea lettuce.jpg';
 import dinoflagellate from '/src/assets/Dinoflagellate (phytoplankton).jpg';
 import sparkle from '/src/assets/Sea sparkle (bioluminescent dinoflagellate).jpg';
+
 import * as turf from '@turf/turf';
 
 function BoundsUpdater() {
@@ -113,7 +117,7 @@ export default function MapComponent() {
   const [fishPos, setFishPos] = useState(null);
   const [pinned, setPinned] = useState([]);
   const [pinnedGeoJsonData, setPinnedGeoJsonData] = useState({});
-
+  
   const fishIcon = new L.DivIcon({
     html: "🦈",
     className: "fish-icon",
@@ -277,7 +281,10 @@ export default function MapComponent() {
 
   const handleKeyPress = (e) => {
     if (e.key === 'Enter') {
-      sendQuery();
+      setQuery()
+      SpeechRecognition.stopListening();
+      resetTranscript();
+
     }
   };
 
@@ -289,6 +296,29 @@ export default function MapComponent() {
     setQuery(item);
     setOpenlist(null);
   };
+  
+const { transcript, listening, resetTranscript, browserSupportsSpeechRecognition } =useSpeechRecognition();
+if(!browserSupportsSpeechRecognition){
+  return <span>Your browser does not support speech search</span>
+}
+useEffect(() => {
+  if(transcript){
+    setQuery(transcript);
+  }
+}, [transcript])
+
+
+const speech = () => {
+  
+
+  if (listening) {
+    SpeechRecognition.stopListening();
+    resetTranscript();
+     // stop when button is ❌
+  } else {
+    SpeechRecognition.startListening({ continuous: true, language: "en-US" }); // start when button is 🎤
+  }
+};
 
   return (
     <div className="relative flex w-full h-screen">
@@ -459,62 +489,62 @@ export default function MapComponent() {
                   Read more..
                 </a>
                 <button
-  className="mt-1 px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600"
-  style={{ fontSize: "0.9rem" }}
-  onClick={() => {
-    // Remove from pinned
-    setPinned((prev) => prev.filter((item) => item !== name));
+                  className="mt-1 px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600"
+                  style={{ fontSize: "0.9rem" }}
+                  onClick={() => {
+                    // Remove from pinned
+                    setPinned((prev) => prev.filter((item) => item !== name));
 
-    // Check if the item is in the current query results
-    const isInCurrentQuery = Object.values(geoJsonData).some((geojson) =>
-      geojson.features.some(
-        (f) => (f.properties?.species || f.properties?.ScientificNames) === name
-      )
-    );
+                    // Check if the item is in the current query results
+                    const isInCurrentQuery = Object.values(geoJsonData).some((geojson) =>
+                      geojson.features.some(
+                        (f) => (f.properties?.species || f.properties?.ScientificNames) === name
+                      )
+                    );
 
-    // If in current query, add to pop (ensuring no duplicates)
-    if (isInCurrentQuery && !pop.includes(name)) {
-      setPop((prev) => [...prev, name]);
-    }
+                    // If in current query, add to pop (ensuring no duplicates)
+                    if (isInCurrentQuery && !pop.includes(name)) {
+                      setPop((prev) => [...prev, name]);
+                    }
 
-    // If not in current query, remove from pinnedGeoJsonData
-    if (!isInCurrentQuery) {
-      setPinnedGeoJsonData((prev) => {
-        const newPinnedGeoJson = { ...prev };
-        Object.keys(newPinnedGeoJson).forEach((filename) => {
-          newPinnedGeoJson[filename].features = newPinnedGeoJson[filename].features.filter(
-            (f) => (f.properties?.species || f.properties?.ScientificNames) !== name
-          );
-          if (newPinnedGeoJson[filename].features.length === 0) {
-            delete newPinnedGeoJson[filename];
-          }
-        });
-        return newPinnedGeoJson;
-      });
-    }
+                    // If not in current query, remove from pinnedGeoJsonData
+                    if (!isInCurrentQuery) {
+                      setPinnedGeoJsonData((prev) => {
+                        const newPinnedGeoJson = { ...prev };
+                        Object.keys(newPinnedGeoJson).forEach((filename) => {
+                          newPinnedGeoJson[filename].features = newPinnedGeoJson[filename].features.filter(
+                            (f) => (f.properties?.species || f.properties?.ScientificNames) !== name
+                          );
+                          if (newPinnedGeoJson[filename].features.length === 0) {
+                            delete newPinnedGeoJson[filename];
+                          }
+                        });
+                        return newPinnedGeoJson;
+                      });
+                    }
 
-    // Show status message
-    showStatus(`Unpinned ${name}`, "success");
-    setTimeout(() => setStatus(""), 3000);
+                    // Show status message
+                    showStatus(`Unpinned ${name}`, "success");
+                    setTimeout(() => setStatus(""), 3000);
 
-    // Update map bounds
-    if (mapRef.current) {
-      const map = mapRef.current;
-      const group = new L.featureGroup();
-      Object.values({ ...geoJsonData, ...pinnedGeoJsonData }).forEach((geojson) => {
-        const layer = L.geoJSON(geojson);
-        group.addLayer(layer);
-      });
-      if (group.getBounds().isValid()) {
-        map.fitBounds(group.getBounds().pad(0.1));
-      } else {
-        map.setView([25, 25], 2.5); // Reset to default view
-      }
-    }
-  }}
->
-  Unpin
-</button>
+                    // Update map bounds
+                    if (mapRef.current) {
+                      const map = mapRef.current;
+                      const group = new L.featureGroup();
+                      Object.values({ ...geoJsonData, ...pinnedGeoJsonData }).forEach((geojson) => {
+                        const layer = L.geoJSON(geojson);
+                        group.addLayer(layer);
+                      });
+                      if (group.getBounds().isValid()) {
+                        map.fitBounds(group.getBounds().pad(0.1));
+                      } else {
+                        map.setView([25, 25], 2.5); // Reset to default view
+                      }
+                    }
+                  }}
+                >
+                  Unpin
+                </button>
               </div>
             </div>
           ))}
@@ -572,17 +602,17 @@ export default function MapComponent() {
           onKeyDown={handleKeyPress}
           disabled={loading}
         />
+        <button onClick={speech} onKeyDown={handleKeyPress} className="p-2 rounded-full bg-zinc-500 text-white">{listening?'✖️':<FaMicrophone size={20} />}</button>
       </div>
       {status && (
         <div className="absolute bottom-20 left-1/2 transform -translate-x-1/2 z-[1000] max-w-md">
           <div
-            className={`px-4 py-2 rounded shadow-lg ${
-              status.includes('Error') || status.includes('failed')
+            className={`px-4 py-2 rounded shadow-lg ${status.includes('Error') || status.includes('failed')
                 ? 'bg-red-100 text-red-700 border border-red-300'
                 : status.includes('successful')
-                ? 'bg-green-100 text-green-700 border border-green-300'
-                : 'bg-blue-100 text-blue-700 border border-blue-300'
-            }`}
+                  ? 'bg-green-100 text-green-700 border border-green-300'
+                  : 'bg-blue-100 text-blue-700 border border-blue-300'
+              }`}
           >
             {status}
           </div>
