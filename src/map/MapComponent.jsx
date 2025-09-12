@@ -16,7 +16,24 @@ import lettuce from '/src/assets/Sea lettuce.jpg';
 import dinoflagellate from '/src/assets/Dinoflagellate (phytoplankton).jpg';
 import sparkle from '/src/assets/Sea sparkle (bioluminescent dinoflagellate).jpg';
 import * as turf from '@turf/turf';
-
+import Magelona from '/src/assets/Magelona cincta (polychaete worm).png';
+import Lumibrineris from '/src/assets/Lumibrineris latreilli (bristle worm).png';
+import Flaccisagitta from '/src/assets/Flaccisagitta enflata (arrow worm).png';
+import Euconchoecia from '/src/assets/Euconchoecia aculeata (ostracod).png';
+import Cossura from '/src/assets/Cossura coasta (segmented worm).png';
+import Conchoecetta from '/src/assets/Conchoecetta giesbrechti (ostracod).png';
+import Tripods  from '/src/assets/Tripods furca (copepod).png';
+import Siriella from '/src/assets/Siriella gracilis (opossum shrimp).png';
+import Sigambra from '/src/assets/Sigambra parva (polychaete worm).png';
+import Serratosagitta from '/src/assets/Serratosagitta pacifica (arrow worm).png';
+import Pterosagitta from '/src/assets/Pterosagitta draco (arrow worm).png';
+import Pseudanchialina  from '/src/assets/Pseudanchialina pusilla (opossum shrimp).png';
+import Proceroecia  from '/src/assets/Proceroecia procera (ostracod).png';
+import Paraprionospio  from '/src/assets/Paraprionospio pinnata (polychaete worm).png';
+import Orthoconchoecia  from '/src/assets/Orthoconchoecia atlantica (ostracod).png';
+import Thalassionema from '/src/assets/Thalassionema nitzschioides (diatom).png';
+import Rhizosolenia from '/src/assets/Rhizosolenia hebetata (diatom).png';
+import Proboscia  from '/src/assets/Proboscia alata (diatom).png';
 function BoundsUpdater() {
   const map = useMap();
   useEffect(() => {
@@ -129,13 +146,31 @@ export default function MapComponent() {
     "Indian Oil Sardine": sardine,
     "Indian Anchovy": anchovy,
     "Indian Mackerel": mackerel,
-    "Ostracod": ostracod,
-    "Sea Firefly": firefly,
-    "Swimming Crab": crab,
-    "Mossy Red Seaweed": mossy,
-    "Sea Lettuce": lettuce,
-    "Dinoflagellate": dinoflagellate,
-    "Sea Sparkle": sparkle,
+    "Ostracod (seed shrimp)": ostracod,
+    "Sea firefly (bioluminescent ostracod)": firefly,
+    "Swimming crab": crab,
+    "Magelona cincta (polychaete worm)" : Magelona,
+    "Lumibrineris latreilli (bristle worm)" : Lumibrineris,
+    "Flaccisagitta enflata (arrow worm)" : Flaccisagitta,
+    "Euconchoecia aculeata (ostracod)" : Euconchoecia,
+    "Cossura coasta (segmented worm)" : Cossura,
+    "Conchoecetta giesbrechti (ostracod)" : Conchoecetta,
+    "Tripods furca (copepod)" : Tripods,
+    "Siriella gracilis (opossum shrimp)" : Siriella,
+    "Sigambra parva (polychaete worm)" : Sigambra,
+    "Serratosagitta pacifica (arrow worm)" : Serratosagitta,
+    "Pterosagitta draco (arrow worm)" : Pterosagitta,
+    "Pseudanchialina pusilla (opossum shrimp)" : Pseudanchialina,
+    "Proceroecia procera (ostracod)" : Proceroecia,
+    "Paraprionospio pinnata (polychaete worm)" : Paraprionospio,
+    "Orthoconchoecia atlantica (ostracod)" : Orthoconchoecia,
+    "Mossy red seaweed": mossy,
+    "Sea lettuce": lettuce,
+    "Dinoflagellate (phytoplankton)": dinoflagellate,
+    "Sea sparkle (bioluminescent dinoflagellate)": sparkle,
+    "Thalassionema nitzschioides (diatom)": Thalassionema,
+    "Rhizosolenia hebetata (diatom)": Rhizosolenia,
+    "Proboscia alata (diatom)": Proboscia,
   };
 
   const containerRef = useRef(null);
@@ -319,110 +354,76 @@ export default function MapComponent() {
           colors={colors}
         />
       </MapContainer>
-      <div
-        ref={containerRef}
-        className="absolute flex justify-center top-4 left-1/2 transform -translate-x-1/2 z-[3000] w-4/5 gap-3"
-      >
-        <div className="flex w-1/6 h-full">
-          <button
-            className="flex w-full justify-center hover:border-white border-2 border-blue-400 bg-white hover:bg-blue-500 hover:text-white px-3 py-1"
-            style={{ borderRadius: '20px', height: '100%', fontSize: '1.4vw', alignItems: 'center' }}
-            onMouseEnter={() => dropdown("animals")}
-            onClick={() => sendQuery('fish')}
-          >
-            Aquatic animals
-          </button>
-          {openlist === "animals" && (
-            <div className="absolute top-full w-1/6 bg-white border rounded shadow-md z-[3000]">
-              <ul className="text-sm" style={{ alignItems: 'center', justifyContent: 'center' }}>
-                {[
-                  "Yellowfin Tuna",
-                  "Clark's Clownfish",
-                  "Indian Oil Sardine",
-                  "Indian Anchovy",
-                  "Indian Mackerel",
-                  "Ostracod",
-                  "Sea Firefly",
-                  "Swimming Crab",
-                ].map((item) => (
-                  <li
-                    key={item}
-                    className="px-3 py-2 hover:bg-blue-200 justify-center cursor-pointer"
-                    style={{ fontSize: '1.5vw' }}
-                    onClick={() => {
-                      selectItem(item);
-                      sendQuery(item);
-                    }}
-                  >
-                    {item}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </div>
-        <div className="flex w-1/6 justify-center h-full">
-          <button
-            className="flex w-full justify-center hover:border-white border-2 border-green-500 bg-white hover:bg-green-500 hover:text-white px-3 py-1"
-            style={{ borderRadius: '20px', height: '100%', fontSize: '1.5vw' }}
-            onMouseEnter={() => dropdown("plants")}
-          >
-            Aquatic Plants
-          </button>
-          {openlist === "plants" && (
-            <div className="absolute top-full w-1/6 bg-white border rounded shadow-md">
-              <ul className="text-sm" style={{ alignItems: 'center', justifyContent: 'center' }}>
-                {[
-                  "Mossy Red Seaweed",
-                  "Sea Lettuce",
-                  "Dinoflagellate",
-                  "Sea Sparkle",
-                ].map((item) => (
-                  <li
-                    key={item}
-                    className="px-3 py-2 justify-center hover:bg-green-200 cursor-pointer"
-                    style={{ fontSize: '1.5vw' }}
-                    onClick={() => {
-                      selectItem(item);
-                      sendQuery(item);
-                    }}
-                  >
-                    {item}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </div>
-        <button
-          className="flex w-1/6 justify-center h-1/2 hover:border-white border-2 border-orange-700 bg-white hover:bg-orange-950 hover:text-white px-3 py-1"
-          style={{ borderRadius: '20px', height: '100%', fontSize: '1.5vw', justifyContent: 'center', alignItems: 'center' }}
-          onClick={() => {
-            selectItem("Petroleum");
-            sendQuery("Petroleum");
-          }}
+      {/* Floating Category Buttons */}
+      <div ref={containerRef} className="absolute flex justify-center top-4 left-1/2 transform -translate-x-1/2 z-[1000] w-4/5 gap-3">
+      {/* Dropdown for Aquatic animals */}
+      <div className="relative">
+        <button 
+            className="flex w-full justify-center hover:border-white border-2 border-blue-400 bg-white hover:bg-blue-500 px-3 py-2 rounded-full shadow" 
+            onClick={() => dropdown("animals")}
         >
-          Petroleum
+            <span className="text-black">Aquatic animals</span>
         </button>
-        <button
-          className="w-1/6 flex justify-center h-1/2 hover:border-white border-2 border-red-700 bg-white hover:bg-red-800 hover:text-white px-3 py-1"
-          style={{ borderRadius: '20px', height: '100%', fontSize: '1.5vw', alignItems: 'center' }}
-          onClick={() => {
-            selectItem("Shipwrecks");
-            sendQuery("Shipwrecks");
-          }}
+        {openlist === "animals" && (
+            <div className="absolute top-full mt-2 w-48 bg-white border rounded shadow-md z-[1001] max-h-80 overflow-y-auto">
+                <ul className="text-sm">
+                    {["Yellowfin Tuna", "Clark's Clownfish", "Indian Oil Sardine", "Indian Anchovy", "Indian Mackerel", "Ostracod (seed shrimp)", "Sea firefly (bioluminescent ostracod)", "Swimming crab","Magelona cincta (polychaete worm)","Lumibrineris latreilli (bristle worm)","Flaccisagitta enflata (arrow worm)","Euconchoecia aculeata (ostracod)","Cossura coasta (segmented worm)","Conchoecetta giesbrechti (ostracod)","Tripods furca (copepod)","Siriella gracilis (opossum shrimp)","Sigambra parva (polychaete worm)","Serratosagitta pacifica (arrow worm)","Pterosagitta draco (arrow worm)","Pseudanchialina pusilla (opossum shrimp)","Proceroecia procera (ostracod)","Paraprionospio pinnata (polychaete worm)","Orthoconchoecia atlantica (ostracod)"].map((item) => (
+                        <li 
+                            key={item} 
+                            className="px-3 py-2 hover:bg-blue-200 cursor-pointer text-black" 
+                            onClick={() => { selectItem(item); sendQuery(item) }}
+                        >
+                            {item}
+                        </li>
+                    ))}
+                </ul>
+             </div>
+        )}
+          </div>
+
+    {/* Dropdown for Aquatic Plants */}
+    <div className="relative">
+        <button 
+            className="flex w-full justify-center hover:border-white border-2 border-green-500 bg-white hover:bg-green-500 px-3 py-2 rounded-full" 
+            onClick={() => { dropdown("plants") }}
         >
-          Shipwrecks
+            <span className="text-black">Aquatic Plants</span>
         </button>
-        <button
-          className="w-1/6 flex justify-center h-1/2 hover:border-white border-2 border-green-900 bg-white hover:bg-green-950 hover:text-white px-3 py-1"
-          style={{ borderRadius: '20px', height: '100%', fontSize: '1.5vw', alignItems: 'center' }}
-          onClick={() => {
-            selectItem("Pollution");
-            sendQuery("Pollution");
-          }}
-        >
-          Pollution
+        {openlist === "plants" && (
+            <div className="absolute top-full mt-2 w-48 bg-white border rounded shadow-md z-[1001] max-h-80 overflow-y-auto">
+                <ul className="text-sm">
+                    {["Mossy red seaweed", "Sea lettuce", "Dinoflagellate (phytoplankton)", "Sea sparkle (bioluminescent dinoflagellate)","Thalassionema nitzschioides (diatom)","Rhizosolenia hebetata (diatom)","Proboscia alata (diatom)"].map((item) => (
+                        <li 
+                            key={item} 
+                            className="px-3 py-2 hover:bg-green-200 cursor-pointer text-black" 
+                            onClick={() => { selectItem(item); sendQuery(item) }}
+                        >
+                            {item}
+                        </li>
+                    ))}
+                </ul>
+             </div>
+         )}
+    </div>
+
+    {/* Static Buttons */}
+    <button 
+        className="flex w-1/6 justify-center hover:border-white border-2 border-orange-700 bg-white hover:bg-orange-950 px-3 py-2 rounded-full" 
+        onClick={() => { selectItem("Petroleum"); sendQuery("Petroleum") }}
+    >
+        <span className="text-black">Petroleum</span>
+    </button>
+    <button 
+        className="w-1/6 flex justify-center hover:border-white border-2 border-red-700 bg-white hover:bg-red-800 px-3 py-2 rounded-full" 
+        onClick={() => { selectItem("Shipwrecks"); sendQuery("Shipwrecks") }}
+    >
+        <span className="text-black">Shipwrecks</span>
+    </button>
+    <button 
+        className="w-1/6 flex justify-center hover:border-white border-2 border-green-900 bg-white hover:bg-green-950 px-3 py-2 rounded-full" 
+        onClick={() => { selectItem("Pollution"); sendQuery("Pollution") }}
+    >
+        <span className="text-black">Pollution</span>
         </button>
       </div>
       <span
